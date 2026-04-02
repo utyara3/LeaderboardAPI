@@ -4,8 +4,10 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
+from src.api.auth import auth_router
 
 app = FastAPI()
+app.include_router(auth_router)
 
 
 @app.get("/")
