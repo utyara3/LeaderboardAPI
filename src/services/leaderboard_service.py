@@ -1,6 +1,6 @@
 from sqlalchemy import select, text
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, Query
 
 from collections.abc import Sequence
 
@@ -48,11 +48,7 @@ async def create_leaderboard(
 
 
 async def submit_entry(
-    db: AsyncSession,
-    slug: str,
-    player_id: str,
-    values: dict,
-    update_if_better: bool = True,
+    db: AsyncSession, slug: str, player_id: str, values: dict
 ) -> LeaderboardEntry:
     res = await db.execute(select(Leaderboard).where(Leaderboard.slug == slug))
     lb = res.scalar_one_or_none()
@@ -70,7 +66,7 @@ async def submit_entry(
     )
     user_entry = res.scalar_one_or_none()
 
-    if user_entry and update_if_better:
+    if user_entry:
         current_score = user_entry.values.get(lb.sort_field)
         new_score = values.get(lb.sort_field)
 
@@ -132,7 +128,7 @@ async def submit_entry(
 
 
 async def get_top_entries(
-    db: AsyncSession, slug: str, limit: int = 10
+    db: AsyncSession, slug: str, limit: int
 ) -> Sequence[LeaderboardEntry]:
     res = await db.execute(select(Leaderboard).where(Leaderboard.slug == slug))
     lb = res.scalar_one_or_none()

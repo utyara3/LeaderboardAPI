@@ -5,9 +5,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
 from src.api.auth import auth_router
+from src.api.leaderboards import lb_router
 
 app = FastAPI()
+
 app.include_router(auth_router)
+app.include_router(lb_router)
 
 
 @app.get("/")
