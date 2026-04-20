@@ -10,7 +10,6 @@ import uuid
 class EntrySubmit(BaseModel):
     player_id: str = Field(..., min_length=1, max_length=100)
     values: dict
-    update_if_better: bool = True
 
 
 class EntryResponse(BaseModel):

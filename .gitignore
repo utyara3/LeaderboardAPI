@@ -14,3 +14,6 @@ wheels/
 # Alembic (temporarily)
 alembic/
 alembic.ini
+
+# Custom files
+run.sh

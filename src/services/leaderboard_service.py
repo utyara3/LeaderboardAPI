@@ -1,6 +1,6 @@
 from sqlalchemy import select, text
 
-from fastapi import HTTPException, status, Query
+from fastapi import HTTPException, status
 
 from collections.abc import Sequence
 
@@ -8,6 +8,41 @@ from src.database import AsyncSession
 from src.models import User, Leaderboard, LeaderboardEntry
 
 import uuid
+
+
+def validate_values(values: dict, fields_schema: dict):
+    for field_name, field_type in fields_schema.items():
+        if field_name in values:
+            expected_type = field_type.get("type")
+            actual_value = values[field_name]
+
+            if expected_type == "integer":
+                if not isinstance(actual_value, (int)) or isinstance(
+                    actual_value, bool
+                ):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Field '{field_name}' must be integer",
+                    )
+
+            if expected_type == "number":
+                if not isinstance(actual_value, (int, float)) or isinstance(
+                    actual_value, bool
+                ):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Field '{field_name}' must be number",
+                    )
+
+            if expected_type == "string":
+                if not isinstance(actual_value, str):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Field '{field_name}' must be string",
+                    )
+
+            else:
+                ...  # ???
 
 
 async def create_leaderboard(
@@ -48,17 +83,8 @@ async def create_leaderboard(
 
 
 async def submit_entry(
-    db: AsyncSession, slug: str, player_id: str, values: dict
+    db: AsyncSession, lb: Leaderboard, player_id: str, values: dict
 ) -> LeaderboardEntry:
-    res = await db.execute(select(Leaderboard).where(Leaderboard.slug == slug))
-    lb = res.scalar_one_or_none()
-
-    if lb is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Leaderboard {slug} not found.",
-        )
-
     res = await db.execute(
         select(LeaderboardEntry)
         .where(LeaderboardEntry.leaderboard_id == lb.id)

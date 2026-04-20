@@ -6,6 +6,7 @@ from src.database import get_db, AsyncSession
 
 from src.models.leaderboard import Leaderboard
 from src.models.user import User
+from src.models.entry import LeaderboardEntry
 
 from src.schemas.leaderboard import LeaderboardResponse, LeaderboardCreate
 from src.schemas.entry import EntrySubmit, EntryResponse
@@ -18,6 +19,7 @@ from src.services.leaderboard_service import (
     submit_entry,
     get_top_entries,
     get_player_entry,
+    validate_values,
 )
 
 lb_router = APIRouter(prefix="/leaderboards", tags=["leaderboards"])
@@ -65,9 +67,26 @@ async def submit_record(
     current_user: User = Depends(get_current_user),  # type: ignore
     db: AsyncSession = Depends(get_db),
 ) -> EntryResponse:
+    res = await db.execute(select(Leaderboard).where(Leaderboard.slug == slug))
+    lb = res.scalar_one_or_none()
+
+    if lb is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Leaderboard {slug} not found.",
+        )
+
+    if lb.sort_field not in entry_data.values:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Required field '{lb.sort_field}' is missing",
+        )
+
+    validate_values(entry_data.values, lb.fields_schema)
+
     entry = await submit_entry(
         db=db,
-        slug=slug,
+        lb=lb,
         player_id=entry_data.player_id,
         values=entry_data.values,
     )
