@@ -6,7 +6,6 @@ from src.database import get_db, AsyncSession
 
 from src.models.leaderboard import Leaderboard
 from src.models.user import User
-from src.models.entry import LeaderboardEntry
 
 from src.schemas.leaderboard import LeaderboardResponse, LeaderboardCreate
 from src.schemas.entry import EntrySubmit, EntryResponse
@@ -64,7 +63,7 @@ async def get_leaderboard_by_slug(
 async def submit_record(
     slug: str,
     entry_data: EntrySubmit,
-    current_user: User = Depends(get_current_user),  # type: ignore
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> EntryResponse:
     res = await db.execute(select(Leaderboard).where(Leaderboard.slug == slug))
@@ -100,7 +99,8 @@ async def get_leaderboard_top(
     query: LeaderboardTopQuery = Depends(),
     db: AsyncSession = Depends(get_db),
 ) -> list[EntryResponse]:
-    entries = await get_top_entries(db=db, slug=slug, limit=query.limit)
+    offset = (query.page - 1) * query.limit
+    entries = await get_top_entries(db=db, slug=slug, limit=query.limit, offset=offset)
     return [EntryResponse.model_validate(e) for e in entries]
 
 

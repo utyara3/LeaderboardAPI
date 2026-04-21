@@ -54,6 +54,11 @@ async def create_leaderboard(
     sort_field: str,
     sort_order: str,
 ) -> Leaderboard:
+    if sort_field not in fields_schema:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Sort field '{sort_field}' must be in fields_schema",
+        )
     res = await db.execute(select(Leaderboard).where(Leaderboard.slug == slug))
     if res.scalar_one_or_none():
         raise HTTPException(
@@ -130,7 +135,8 @@ async def submit_entry(
                 SELECT 
                     id,
                     RANK() OVER (
-                        ORDER BY (values->:sort_field)::numeric {direction}
+                        ORDER BY (values->:sort_field)::numeric {direction},
+                        created_at ASC 
                     ) as new_rank
                 FROM entries
                 WHERE leaderboard_id = :lb_id
@@ -154,7 +160,7 @@ async def submit_entry(
 
 
 async def get_top_entries(
-    db: AsyncSession, slug: str, limit: int
+    db: AsyncSession, slug: str, limit: int, offset: int
 ) -> Sequence[LeaderboardEntry]:
     res = await db.execute(select(Leaderboard).where(Leaderboard.slug == slug))
     lb = res.scalar_one_or_none()
@@ -170,6 +176,7 @@ async def get_top_entries(
         .where(LeaderboardEntry.leaderboard_id == lb.id)
         .order_by(LeaderboardEntry.rank.asc())
         .limit(limit)
+        .offset(offset)
     )
 
     return res.scalars().all()
