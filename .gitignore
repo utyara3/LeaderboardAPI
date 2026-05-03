@@ -11,9 +11,5 @@ wheels/
 .venv
 .env
 
-# Alembic (temporarily)
-alembic/
-alembic.ini
-
 # Custom files
 run.sh
