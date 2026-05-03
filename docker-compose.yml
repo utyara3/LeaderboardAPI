@@ -14,12 +14,13 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - ALGORITHM=${ALGORITHM}
       - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES}
+      - PYTHONPYCACHEPREFIX=/app/__pycache__
     volumes:
       - ./src:/app/src:ro
       - ./alembic:/app/alembic:ro
       - ./alembic.ini:/app/alembic.ini:ro
       - ./pyproject.toml:/app/pyproject.toml:ro
-      - /app/src/__pycache__
+      - pycache:/app/__pycache__
     depends_on:
       db:
         condition: service_healthy
@@ -44,3 +45,4 @@ services:
 
 volumes:
   pgdata:
+  pycache:
