@@ -5,8 +5,6 @@ from fastapi import HTTPException, status
 
 from datetime import datetime, timezone, timedelta
 
-from starlette.status import HTTP_401_UNAUTHORIZED
-
 from src.models.refresh_token import RefreshToken
 from src.models.user import User
 
@@ -66,11 +64,13 @@ async def refresh_acces_token(db: AsyncSession, refresh_token: str) -> dict:
     user = res.scalar_one_or_none()
 
     if not user:
-        raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
+        )
 
     valid_token.revoked = True
 
-    new_access_token = create_access_token(data={"sub": user.id})
+    new_access_token = create_access_token(data={"sub": str(user.id)})
     new_plain_refresh, new_hashed_refresh = create_refresh_token()
 
     new_expires_at = datetime.now(timezone.utc) + timedelta(

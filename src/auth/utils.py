@@ -59,7 +59,7 @@ def decode_token(token: str) -> dict | None:
 
 
 def create_refresh_token() -> tuple[str, str]:
-    plain_token = secrets.token_urlsafe(64)
+    plain_token = secrets.token_urlsafe(32)
     token_hash = bcrypt.hashpw(plain_token.encode("utf-8"), bcrypt.gensalt())
 
     return plain_token, token_hash.decode("utf-8")

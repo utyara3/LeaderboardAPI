@@ -38,7 +38,7 @@ async def register(
     if is_user_exists:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Account with this email is already_exists",
+            detail="Account with this email is already exists",
         )
 
     res = await db.execute(select(User).where(User.username == username))
@@ -47,7 +47,7 @@ async def register(
     if is_user_exists:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Account with this username is already_exists",
+            detail="Account with this username is already exists",
         )
 
     hashed_password = hash_password(user_password)
@@ -105,7 +105,7 @@ async def refresh_token(
 ) -> TokenResponse:
     token = await refresh_acces_token(db=db, refresh_token=refresh_token)
 
-    return TokenResponse.model_validate(**token)
+    return TokenResponse.model_validate(token)
 
 
 @auth_router.post("/logout")
