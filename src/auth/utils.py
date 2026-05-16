@@ -1,5 +1,7 @@
 import bcrypt
 
+import secrets
+
 from jose import jwt, JWTError
 
 from datetime import datetime, timedelta, timezone
@@ -54,3 +56,14 @@ def decode_token(token: str) -> dict | None:
 
     except JWTError:
         return None
+
+
+def create_refresh_token() -> tuple[str, str]:
+    plain_token = secrets.token_urlsafe(64)
+    token_hash = bcrypt.hashpw(plain_token.encode("utf-8"), bcrypt.gensalt())
+
+    return plain_token, token_hash.decode("utf-8")
+
+
+def verify_refresh_token(plain_token: str, token_hash: str) -> bool:
+    return bcrypt.checkpw(plain_token.encode("utf-8"), token_hash.encode("utf-8"))
