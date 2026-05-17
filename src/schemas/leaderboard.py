@@ -2,7 +2,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from datetime import datetime
 
-from typing import Literal
+from typing import Literal, Optional
 
 import uuid
 
@@ -13,6 +13,13 @@ class LeaderboardCreate(BaseModel):
     fields_schema: dict[str, dict]
     sort_field: str = Field(..., min_length=1)
     sort_order: Literal["asc", "desc"]
+
+
+class LeaderboardUpdate(BaseModel):
+    name: Optional[str]
+    fields_schema: Optional[dict]
+    sort_field: Optional[str]
+    sort_order: Optional[Literal["asc", "desc"]]
 
 
 class LeaderboardResponse(BaseModel):
@@ -26,3 +33,10 @@ class LeaderboardResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class LeaderboardListResponse(BaseModel):
+    items: list[LeaderboardResponse]
+    total: int
+    limit: int
+    offset: int

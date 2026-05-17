@@ -7,7 +7,12 @@ from src.database import get_db, AsyncSession
 from src.models.leaderboard import Leaderboard
 from src.models.user import User
 
-from src.schemas.leaderboard import LeaderboardResponse, LeaderboardCreate
+from src.schemas.leaderboard import (
+    LeaderboardResponse,
+    LeaderboardListResponse,
+    LeaderboardCreate,
+    LeaderboardUpdate,
+)
 from src.schemas.entry import EntrySubmit, EntryResponse
 from src.schemas.query import LeaderboardTopQuery
 
@@ -19,6 +24,9 @@ from src.services.leaderboard_service import (
     get_top_entries,
     get_player_entry,
     validate_values,
+    get_all_leaderboards,
+    update_leaderboard,
+    delete_leaderboard,
 )
 
 lb_router = APIRouter(prefix="/leaderboards", tags=["leaderboards"])
@@ -41,6 +49,39 @@ async def create_leaderboard_route(
     )
 
     return LeaderboardResponse.model_validate(lb)
+
+
+@lb_router.get("/", response_model=LeaderboardListResponse)
+async def get_all_leaderboards_route(
+    limit: int = 10,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+) -> LeaderboardListResponse:
+    leaderboards, total = await get_all_leaderboards(db=db, limit=limit, offset=offset)
+
+    return LeaderboardListResponse(
+        items=[LeaderboardResponse.model_validate(lb) for lb in leaderboards],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@lb_router.put("/{slug}", response_model=LeaderboardResponse)
+async def update_leaderboard_route(
+    slug: str,
+    update_data: LeaderboardUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> LeaderboardResponse:
+    filteres_fields = {
+        k: v for k, v in update_data.model_dump().items() if v is not None
+    }
+    res = await update_leaderboard(
+        db=db, slug=slug, owner_id=current_user.id, **filteres_fields
+    )
+
+    return LeaderboardResponse.model_validate(res)
 
 
 @lb_router.get("/{slug}", response_model=LeaderboardResponse)
@@ -117,3 +158,14 @@ async def get_player_by_id(
         )
 
     return EntryResponse.model_validate(entry)
+
+
+@lb_router.delete("/{slug}")
+async def delete_leaderboard_route(
+    slug: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    res = await delete_leaderboard(db=db, slug=slug, owner_id=current_user.id)
+
+    return {"status": res}

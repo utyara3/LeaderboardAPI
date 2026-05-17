@@ -16,7 +16,9 @@ class LeaderboardEntry(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     leaderboard_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("leaderboards.id"), nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("leaderboards.id", ondelete="CASCADE"),
+        nullable=False,
     )
     player_id: Mapped[str] = mapped_column(String, nullable=False)
     values: Mapped[dict] = mapped_column(JSONB, nullable=False)

@@ -1,4 +1,4 @@
-from sqlalchemy import select, text
+from sqlalchemy import select, text, func
 
 from fastapi import HTTPException, status
 
@@ -25,7 +25,7 @@ def validate_values(values: dict, fields_schema: dict):
                         detail=f"Field '{field_name}' must be integer",
                     )
 
-            if expected_type == "number":
+            elif expected_type == "number":
                 if not isinstance(actual_value, (int, float)) or isinstance(
                     actual_value, bool
                 ):
@@ -34,15 +34,44 @@ def validate_values(values: dict, fields_schema: dict):
                         detail=f"Field '{field_name}' must be number",
                     )
 
-            if expected_type == "string":
+            elif expected_type == "string":
                 if not isinstance(actual_value, str):
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail=f"Field '{field_name}' must be string",
                     )
 
-            else:
-                ...  # ???
+
+async def recalculate_ranks(
+    db: AsyncSession, leaderboard_id: uuid.UUID, sort_field: str, sort_order: str
+) -> None:
+    direction = "ASC" if sort_order == "asc" else "DESC"
+
+    await db.execute(
+        text(
+            f"""
+            WITH ranked AS (
+                SELECT 
+                    id,
+                    RANK() OVER (
+                        ORDER BY 
+                            (values->:sort_field)::numeric {direction},
+                            created_at ASC 
+                    ) as new_rank
+                FROM entries
+                WHERE leaderboard_id = :lb_id
+            )
+            UPDATE entries
+            SET rank = ranked.new_rank
+            FROM ranked
+            WHERE entries.id = ranked.id
+            """
+        ),
+        {
+            "sort_field": sort_field,
+            "lb_id": leaderboard_id,
+        },
+    )
 
 
 async def create_leaderboard(
@@ -126,31 +155,8 @@ async def submit_entry(
 
     await db.flush()
 
-    direction = "ASC" if lb.sort_order == "asc" else "DESC"
-
-    await db.execute(
-        text(
-            f"""
-            WITH ranked AS (
-                SELECT 
-                    id,
-                    RANK() OVER (
-                        ORDER BY (values->:sort_field)::numeric {direction},
-                        created_at ASC 
-                    ) as new_rank
-                FROM entries
-                WHERE leaderboard_id = :lb_id
-            )
-            UPDATE entries
-            SET rank = ranked.new_rank
-            FROM ranked
-            WHERE entries.id = ranked.id
-            """
-        ),
-        {
-            "sort_field": lb.sort_field,
-            "lb_id": lb.id,
-        },
+    await recalculate_ranks(
+        db=db, leaderboard_id=lb.id, sort_field=lb.sort_field, sort_order=lb.sort_order
     )
 
     await db.commit()
@@ -201,3 +207,101 @@ async def get_player_entry(
     )
 
     return res.scalar_one_or_none()
+
+
+async def get_all_leaderboards(
+    db: AsyncSession, limit: int = 10, offset: int = 0
+) -> tuple[Sequence[Leaderboard], int]:
+    res = await db.execute(select(Leaderboard).limit(limit).offset(offset))
+    leaderboards = res.scalars().all()
+
+    count_res = await db.execute(select(func.count()).select_from(Leaderboard))
+    total = count_res.scalar() or 0
+
+    return leaderboards, total
+
+
+async def update_leaderboard(
+    db: AsyncSession, slug: str, owner_id: uuid.UUID, **update_data
+) -> Leaderboard:
+    res = await db.execute(select(Leaderboard).where(Leaderboard.slug == slug))
+    lb = res.scalar_one_or_none()
+
+    if lb is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Leaderboard {slug} not found",
+        )
+
+    if lb.owner_id != owner_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
+        )
+
+    new_sort_field = update_data.get("sort_field", None)
+    if new_sort_field is not None:
+        current_schema = lb.fields_schema
+        if new_sort_field not in current_schema:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"sort_field '{new_sort_field}' must be in fields_schema",
+            )
+
+    new_fields_schema = update_data.get("fields_schema", None)
+    if new_fields_schema is not None:
+        current_sort_field = lb.sort_field
+        if current_sort_field not in new_fields_schema:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"fields_schema must contain current sort_field '{current_sort_field}'",
+            )
+
+    if new_fields_schema is not None and new_sort_field is not None:
+        if new_sort_field not in new_fields_schema:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"new sort_field '{new_sort_field}' must be in new fields_schema",
+            )
+
+    for field, value in update_data.items():
+        if value is not None:
+            setattr(lb, field, value)
+
+    need_recalc = (update_data.get("sort_field", None) is not None) or (
+        update_data.get("sort_order", None) is not None
+    )
+
+    if need_recalc:
+        await recalculate_ranks(
+            db=db,
+            leaderboard_id=lb.id,
+            sort_field=update_data.get("sort_field") or lb.sort_field,
+            sort_order=update_data.get("sort_order") or lb.sort_order,
+        )
+
+    db.add(lb)
+    await db.commit()
+    await db.refresh(lb)
+
+    return lb
+
+
+async def delete_leaderboard(db: AsyncSession, slug: str, owner_id: uuid.UUID) -> bool:
+    res = await db.execute(select(Leaderboard).where(Leaderboard.slug == slug))
+    lb = res.scalar_one_or_none()
+
+    if lb is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Leaderboard {slug} not found",
+        )
+
+    if lb.owner_id != owner_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
+        )
+
+    await db.delete(lb)
+    await db.commit()
+
+    return True
