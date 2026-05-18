@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaderboards - Leaderboard API</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 { font-size: 32px; }
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .btn:hover { transform: translateY(-2px); }
+        .btn-primary { background: white; color: #667eea; }
+        .btn-danger { background: #e74c3c; color: white; }
+        .btn-success { background: #27ae60; color: white; }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        .leaderboard-item:last-child { border-bottom: none; }
+        .leaderboard-info h3 { color: #333; margin-bottom: 5px; }
+        .leaderboard-info p { color: #888; font-size: 14px; }
+        .leaderboard-actions { display: flex; gap: 10px; }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 500px;
+        }
+        .form-group { margin-bottom: 20px; }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e1e1;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏆 Leaderboards</h1>
+            <button class="btn btn-primary" onclick="showCreateModal()">+ Create</button>
+        </div>
+
+        <div id="error" class="error" style="display: none;"></div>
+        
+        <div id="loading" class="loading">Loading...</div>
+        <div id="leaderboards"></div>
+    </div>
+
+    <!-- Create Modal -->
+    <div id="createModal" class="modal">
+        <div class="modal-content">
+            <h2 style="margin-bottom: 20px;">Create Leaderboard</h2>
+            <form id="createForm">
+                <div class="form-group">
+                    <label>Slug (URL)</label>
+                    <input type="text" id="slug" required pattern="[a-z0-9-]+" 
+                           placeholder="my-leaderboard">
+                </div>
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" id="name" required placeholder="My Leaderboard">
+                </div>
+                <div class="form-group">
+                    <label>Sort Field</label>
+                    <input type="text" id="sortField" required placeholder="score">
+                </div>
+                <div class="form-group">
+                    <label>Sort Order</label>
+                    <select id="sortOrder">
+                        <option value="asc">Ascending (lower is better)</option>
+                        <option value="desc">Descending (higher is better)</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" class="btn btn-danger" onclick="hideCreateModal()" style="flex: 1;">Cancel</button>
+                    <button type="submit" class="btn btn-success" style="flex: 1;">Create</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+    <script>
+        // Проверка авторизации при загрузке
+        if (!requireAuth()) {
+            window.location.href = '/login';
+        }
+
+        // Загрузка лидербордов
+        async function loadLeaderboards() {
+            try {
+                const res = await apiRequest(`${API_URL}/leaderboards/?limit=100&offset=0`);
+                document.getElementById('loading').style.display = 'none';
+                
+                if (res && res.ok) {
+                    const data = await res.json();
+                    renderLeaderboards(data.items || data);
+                } else {
+                    showError('Failed to load leaderboards');
+                }
+            } catch (err) {
+                showError('Error: ' + err.message);
+            }
+        }
+
+        function renderLeaderboards(leaderboards) {
+            const container = document.getElementById('leaderboards');
+            
+            if (!leaderboards || leaderboards.length === 0) {
+                container.innerHTML = '<div class="card"><p style="text-align: center; color: #888;">No leaderboards yet. Create one!</p></div>';
+                return;
+            }
+
+            container.innerHTML = '<div class="card">' + 
+                leaderboards.map(lb => `
+                    <div class="leaderboard-item">
+                        <div class="leaderboard-info">
+                            <h3>${lb.name}</h3>
+                            <p>/${lb.slug} • Sort: ${lb.sort_field} (${lb.sort_order})</p>
+                        </div>
+                        <div class="leaderboard-actions">
+                            <button class="btn btn-primary" onclick="viewLeaderboard('${lb.slug}')">View</button>
+                            <button class="btn btn-danger" onclick="deleteLeaderboard('${lb.slug}')">Delete</button>
+                        </div>
+                    </div>
+                `).join('') +
+                '</div>';
+        }
+
+        function showCreateModal() {
+            document.getElementById('createModal').classList.add('active');
+        }
+
+        function hideCreateModal() {
+            document.getElementById('createModal').classList.remove('active');
+            document.getElementById('createForm').reset();
+        }
+
+        // Создание лидерборда
+        document.getElementById('createForm').onsubmit = async (e) => {
+            e.preventDefault();
+            
+            const data = {
+                slug: document.getElementById('slug').value,
+                name: document.getElementById('name').value,
+                sort_field: document.getElementById('sortField').value,
+                sort_order: document.getElementById('sortOrder').value,
+                fields_schema: {
+                    [document.getElementById('sortField').value]: { type: "integer" }
+                }
+            };
+
+            try {
+                const res = await apiRequest(`${API_URL}/leaderboards/`, {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                });
+
+                if (res && res.ok) {
+                    hideCreateModal();
+                    loadLeaderboards();
+                } else {
+                    const error = await res.json();
+                    showError(error.detail || 'Failed to create');
+                }
+            } catch (err) {
+                showError('Error: ' + err.message);
+            }
+        };
+
+        function viewLeaderboard(slug) {
+            window.location.href = `/leaderboard/${slug}`;
+        }
+
+        async function deleteLeaderboard(slug) {
+            if (!confirm(`Delete leaderboard "${slug}"? This will delete all entries!`)) {
+                return;
+            }
+
+            try {
+                const res = await apiRequest(`${API_URL}/leaderboards/${slug}`, {
+                    method: 'DELETE'
+                });
+
+                if (res && res.ok) {
+                    loadLeaderboards();
+                } else {
+                    const error = await res.json();
+                    showError(error.detail || 'Failed to delete');
+                }
+            } catch (err) {
+                showError('Error: ' + err.message);
+            }
+        }
+
+        function showError(msg) {
+            const el = document.getElementById('error');
+            el.textContent = msg;
+            el.style.display = 'block';
+            setTimeout(() => el.style.display = 'none', 5000);
+        }
+
+        // Загрузка при старте
+        loadLeaderboards();
+    </script>
+</body>
+</html>

@@ -21,6 +21,7 @@ services:
       - ./alembic:/app/alembic
       - ./alembic.ini:/app/alembic.ini:ro
       - ./pyproject.toml:/app/pyproject.toml:ro
+      - ./frontend:/app/frontend:ro
       - pycache:/app/__pycache__
     depends_on:
       db:
