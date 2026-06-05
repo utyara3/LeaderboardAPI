@@ -6,7 +6,7 @@ from datetime import datetime
 
 import uuid
 
-from src.database import Base
+from src.core.database import Base
 
 
 class LeaderboardEntry(Base):

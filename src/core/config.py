@@ -17,6 +17,13 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int
     REFRESH_TOKEN_EXPIRE_DAYS: int
 
+    REDIS_URL: str
+    RATE_LIMIT_AUTH_REQUESTS: int
+    RATE_LIMIT_API_REQUESTS: int
+    RATE_LIMIT_SUBMIT_REQUESTS: int
+    RATE_LIMIT_DEFAULT_REQUESTS: int
+    RATE_LIMIT_WINDOW_SECONDS: int
+
     @property
     def DATABASE_URL(self) -> str:
         return (

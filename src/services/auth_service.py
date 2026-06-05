@@ -15,7 +15,7 @@ from src.auth.utils import (
     decode_token,
 )
 
-from src.config import settings
+from src.core.config import settings
 
 
 async def login_token(db: AsyncSession, user: User) -> dict:

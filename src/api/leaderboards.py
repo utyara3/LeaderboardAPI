@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from sqlalchemy import select
 
-from src.database import get_db, AsyncSession
+from src.core.database import get_db, AsyncSession
 
 from src.models.leaderboard import Leaderboard
 from src.models.user import User

@@ -4,7 +4,7 @@ from fastapi import HTTPException, status
 
 from collections.abc import Sequence
 
-from src.database import AsyncSession
+from src.core.database import AsyncSession
 from src.models import User, Leaderboard, LeaderboardEntry
 
 import uuid

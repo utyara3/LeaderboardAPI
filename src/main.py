@@ -8,16 +8,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from pathlib import Path
 
-from src.database import get_db
+from src.core.database import get_db
+from src.core.redis import redis
+
 from src.api.auth import auth_router
 from src.api.leaderboards import lb_router
 
+from src.middleware.rate_limiter import RateLimitMiddleware
+
+
 app = FastAPI()
-frontend_directory = Path(__file__).parent.parent / "frontend"
 
 app.include_router(auth_router)
 app.include_router(lb_router)
 
+app.add_middleware(RateLimitMiddleware, redis=redis)
+
+frontend_directory = Path(__file__).parent.parent / "frontend"
 app.mount("/static", StaticFiles(directory=frontend_directory), name="static")
 
 

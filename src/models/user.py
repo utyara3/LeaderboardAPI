@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 import uuid
 
-from src.database import Base
+from src.core.database import Base
 
 if TYPE_CHECKING:
     from src.models.refresh_token import RefreshToken
