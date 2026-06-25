@@ -13,3 +13,11 @@ wheels/
 
 # Custom files
 run.sh
+.coverage
+.coverage
+.pytest_cache/
+htmlcov/
+__pycache__/
+*.pyc
+.env
+.pytest_cache
