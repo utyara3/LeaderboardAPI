@@ -4,24 +4,8 @@ services:
     container_name: leaderboard_api
     ports:
       - "8000:8000"
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://${DATABASE_USER}:${DATABASE_PASSWORD}@db:5432/${DATABASE_NAME}
-      - DATABASE_HOST=db
-      - DATABASE_PORT=5432
-      - DATABASE_USER=${DATABASE_USER}
-      - DATABASE_PASSWORD=${DATABASE_PASSWORD}
-      - DATABASE_NAME=${DATABASE_NAME}
-      - SECRET_KEY=${SECRET_KEY}
-      - ALGORITHM=${ALGORITHM}
-      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES}
-      - REFRESH_TOKEN_EXPIRE_DAYS=${REFRESH_TOKEN_EXPIRE_DAYS}
-      - REDIS_URL=${REDIS_URL}
-      - RATE_LIMIT_AUTH_REQUESTS=${RATE_LIMIT_AUTH_REQUESTS}
-      - RATE_LIMIT_API_REQUESTS=${RATE_LIMIT_API_REQUESTS}
-      - RATE_LIMIT_SUBMIT_REQUESTS=${RATE_LIMIT_SUBMIT_REQUESTS}
-      - RATE_LIMIT_DEFAULT_REQUESTS=${RATE_LIMIT_DEFAULT_REQUESTS}
-      - RATE_LIMIT_WINDOW_SECONDS=${RATE_LIMIT_WINDOW_SECONDS}
-      - PYTHONPYCACHEPREFIX=/app/__pycache__
+    env_file:
+      - .env
     volumes:
       - ./src:/app/src:ro
       - ./alembic:/app/alembic
@@ -37,10 +21,8 @@ services:
   db:
     image: postgres:15-alpine
     container_name: leaderboard_db
-    environment:
-      POSTGRES_USER: ${DATABASE_USER}
-      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
-      POSTGRES_DB: ${DATABASE_NAME}
+    env_file:
+      - .env
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
@@ -62,6 +44,21 @@ services:
       redis-server --appendonly yes
     healthcheck:
       test: ["CMD-SHELL", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  db_test:
+    image: postgres:15-alpine
+    container_name: leaderboard_db_test
+    environment:
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_pass
+      POSTGRES_DB: test_leaderboard_db
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d test_leaderboard_db"]
       interval: 5s
       timeout: 5s
       retries: 5
