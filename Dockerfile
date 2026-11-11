@@ -1,10 +1,13 @@
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 RUN pip install uv
 
 WORKDIR /app
 
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml uv.lock .python-version ./
+
+ENV UV_PYTHON=3.14
+ENV UV_PYTHON_DOWNLOADS=never
 
 RUN uv sync --frozen --no-install-project
 
